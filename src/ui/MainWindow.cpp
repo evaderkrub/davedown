@@ -954,10 +954,10 @@ void MainWindow::drawModals(const UiFrame& frame)
             if (ImGui::Button(isDefault ? "Change default app for .md..." : "Make davedown the default for .md files...")) {
                 std::string err;
                 if (!platform::promptMakeDefault(err)) showError(err);
-                else status("In Settings, press \"Set default\" next to davedown");
+                else status("In Settings, click the .md row and choose davedown");
             }
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                ImGui::SetTooltip("Registers davedown with Windows and opens Settings > Default apps,\nwhere \"Set default\" makes it the handler for markdown files.");
+                ImGui::SetTooltip("Registers davedown with Windows and opens Settings > Default apps,\nwhere clicking a file type lets you choose davedown for it.");
         }
         ImGui::Spacing();
         faintText("Settings file: %s", platform::settingsPath().c_str());

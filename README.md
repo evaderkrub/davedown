@@ -33,6 +33,13 @@ scaling from 70% to 200% with DPI awareness, and a modal About box.
 Preferences and recent files are saved to `davedown.settings` beside the
 executable (or the per-user folder when that is read-only).
 
+To make davedown open `.md` files from Explorer, use Preferences > File
+associations (or run `davedown.exe --register`). That registers the
+executable per user, no administrator rights needed, and opens Settings >
+Default apps > davedown, where you click a file type and choose davedown.
+Windows 11 keeps that choice in a protected key, so the final click has to
+be yours. Moving the staged folder means registering again.
+
 ## Building
 
 Requirements: Visual Studio 2022 or later (MSVC), CMake 3.24+, Ninja. SDL3,
