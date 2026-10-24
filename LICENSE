@@ -19,15 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party components, each under its own license:
-
-- Dear ImGui and the Dear ImGui Test Engine (MIT), fetched at build time
-- SDL3 (zlib), fetched at build time
-- md4c (MIT), third_party/md4c
-- stb_image (MIT / public domain), fetched at build time
-- Open Sans (SIL Open Font License 1.1), assets/fonts/OFL-OpenSans.txt
-- Fira Code (SIL Open Font License 1.1)
-- Material Icons by Google (Apache License 2.0), font and codepoint header

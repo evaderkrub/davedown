@@ -122,5 +122,6 @@ tools/                  build.cmd, test.cmd
 
 ## License
 
-MIT. See `LICENSE`, which also lists the third-party components and their
-licenses (Dear ImGui, SDL3, md4c, stb, Open Sans, Fira Code, Material Icons).
+MIT, see `LICENSE`. Third-party components and their licenses (Dear ImGui,
+SDL3, md4c, stb, Open Sans, Fira Code, Material Icons) are listed in
+`THIRD_PARTY_NOTICES.md`.
