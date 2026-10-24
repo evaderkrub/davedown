@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "app/Outline.h"
+#include "platform/FileAssociation.h"
 #include "platform/FileDialog.h"
 #include "platform/Paths.h"
 #include "platform/Shell.h"
@@ -944,6 +945,20 @@ void MainWindow::drawModals(const UiFrame& frame)
         ImGui::SetNextItemWidth(fs * 12.0f);
         if (ImGui::Combo("Open documents in", &mode, modes, 3)) { ws_.settings.defaultMode = (ViewMode)mode; changed = true; }
         if (ImGui::Checkbox("Show outline panel", &ws_.settings.showOutline)) changed = true;
+        if (platform::fileAssociationSupported()) {
+            ImGui::Spacing();
+            sectionHeader("File associations");
+            const bool isDefault = platform::isDefaultMarkdownHandler();
+            if (isDefault) statusPill("davedown opens .md files", KindOk);
+            else mutedText("Another program opens .md files.");
+            if (ImGui::Button(isDefault ? "Change default app for .md..." : "Make davedown the default for .md files...")) {
+                std::string err;
+                if (!platform::promptMakeDefault(err)) showError(err);
+                else status("In Settings, press \"Set default\" next to davedown");
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("Registers davedown with Windows and opens Settings > Default apps,\nwhere \"Set default\" makes it the handler for markdown files.");
+        }
         ImGui::Spacing();
         faintText("Settings file: %s", platform::settingsPath().c_str());
         ImGui::Spacing();

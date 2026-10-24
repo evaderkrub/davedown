@@ -1,6 +1,7 @@
 // Entry point: SDL3 window + SDL_Renderer, Dear ImGui, and the frame loop.
 // Everything that is not plumbing lives in src/ui and src/app.
 #include "app/Workspace.h"
+#include "platform/FileAssociation.h"
 #include "platform/Paths.h"
 #include "platform/Textures.h"
 #include "ui/Fonts.h"
@@ -71,6 +72,17 @@ float displayScale(SDL_Window* window)
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
+    // "--register": write the file-type registration and show the Windows
+    // dialog where the person confirms davedown as the .md default, then exit.
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i] && std::string(argv[i]) == "--register") {
+            std::string err;
+            const bool ok = dd::platform::promptMakeDefault(err);
+            if (!ok) std::fprintf(stderr, "%s\n", err.c_str());
+            *appstate = nullptr;
+            return ok ? SDL_APP_SUCCESS : SDL_APP_FAILURE;
+        }
+    }
     auto* app = new App();
     *appstate = app;
 

@@ -131,7 +131,8 @@ add_library(davedown_platform STATIC
     src/platform/Paths.cpp
     src/platform/FileDialog.cpp
     src/platform/Shell.cpp
-    src/platform/Textures.cpp)
+    src/platform/Textures.cpp
+    src/platform/FileAssociation.cpp)
 target_include_directories(davedown_platform PUBLIC src)
 target_link_libraries(davedown_platform PUBLIC davedown_warnings davedown_app SDL3::SDL3 stb_image)
 
