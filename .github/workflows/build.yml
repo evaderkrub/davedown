@@ -1,0 +1,64 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
+      # SDL3, Dear ImGui, the test engine and stb are fetched by CMake; keep
+      # the checkouts between runs so a build is not dominated by cloning.
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: C:/buildfiles/davedown/release/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure
+        run: cmake --preset release
+
+      - name: Build
+        run: cmake --build --preset release
+
+      - name: Test
+        run: ctest --preset release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $stage = "C:/buildfiles/davedown/release/stage"
+          $out = "davedown-windows-x64"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "$stage/davedown.exe" $out
+          Copy-Item "$stage/assets" "$out/assets" -Recurse
+          Copy-Item "$stage/README.md" $out
+          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md $out
+          Compress-Archive -Path "$out/*" -DestinationPath "$out.zip" -Force
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: davedown-windows-x64
+          path: davedown-windows-x64.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: davedown-windows-x64.zip
+          generate_release_notes: true

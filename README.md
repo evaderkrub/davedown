@@ -1,5 +1,7 @@
 # davedown
 
+[![build](https://github.com/evaderkrub/davedown/actions/workflows/build.yml/badge.svg)](https://github.com/evaderkrub/davedown/actions/workflows/build.yml)
+
 ![davedown showing the welcome document in Preview mode](docs/screenshot.png)
 
 A native markdown viewer and editor for the desktop. C++20, SDL3 for the
@@ -41,6 +43,13 @@ executable per user, no administrator rights needed, and opens Settings >
 Default apps > davedown, where you click a file type and choose davedown.
 Windows 11 keeps that choice in a protected key, so the final click has to
 be yours. Moving the staged folder means registering again.
+
+## Downloading
+
+Every push to `master` builds on GitHub Actions and uploads
+`davedown-windows-x64.zip` as a workflow artifact; tags of the form `v*`
+attach the same ZIP to a GitHub release. Unzip anywhere and run
+`davedown.exe`.
 
 ## Building
 
