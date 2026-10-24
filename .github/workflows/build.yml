@@ -7,6 +7,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The Release step creates a GitHub release and uploads the ZIP, which
+# needs write access to repository contents; the default token is read-only.
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
