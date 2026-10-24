@@ -20,6 +20,10 @@ std::string resolve(const std::string& relative);
 // instead so the app still remembers its state.
 std::string settingsPath();
 
+// Test harnesses point the settings file elsewhere so a test run never
+// touches the preferences of the application staged beside it.
+void overrideSettingsPath(const std::string& path);
+
 bool readTextFile(const std::string& path, std::string& out, std::string& error);
 bool writeTextFile(const std::string& path, const std::string& text, std::string& error);
 bool fileExists(const std::string& path);

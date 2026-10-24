@@ -105,6 +105,7 @@ private:
     int  closeAfterSaveDocId_ = -1;
     std::string errorText_;
     void* lastNativeWindow_ = nullptr;
+    float toolbarRightWidth_ = 0.0f;   // measured each frame, used the next
 };
 
 // Slug for "#heading-links", GitHub style.

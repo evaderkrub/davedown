@@ -34,8 +34,15 @@ std::string resolve(const std::string& relative)
     return exeDirectory() + normalizeSeparators(relative);
 }
 
+namespace {
+std::string g_settingsOverride;
+}
+
+void overrideSettingsPath(const std::string& path) { g_settingsOverride = path; }
+
 std::string settingsPath()
 {
+    if (!g_settingsOverride.empty()) return g_settingsOverride;
     const std::string beside = resolve("davedown.settings");
     // Probe writability once: open for append creates the file if missing
     // without touching existing contents.

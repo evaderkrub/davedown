@@ -559,9 +559,11 @@ void MainWindow::drawToolbar(const UiFrame& frame)
         ImGui::SameLine();
     }
 
-    // Right-aligned group.
-    const float rightW = ImGui::GetFrameHeight() * 5.0f + ImGui::GetFontSize() * 3.2f + pad * 2.0f;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - rightW));
+    // Right-aligned group. Its width is measured from the previous frame's
+    // items rather than estimated, so it stays right-aligned at every scale.
+    const float rightW = toolbarRightWidth_ > 0.0f ? toolbarRightWidth_ : ImGui::GetFontSize() * 14.0f;
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - rightW - pad));
+    const float rightStartX = ImGui::GetCursorPosX();
     if (iconButton("find", ICON_MD_SEARCH, "Find (Ctrl+F)", od != nullptr) && od) {
         od->showFind = !od->showFind;
         uiFor(*od).focusSearch = od->showFind;
@@ -585,6 +587,7 @@ void MainWindow::drawToolbar(const UiFrame& frame)
     if (iconButton("zoomin", ICON_MD_ZOOM_IN, "Zoom in (Ctrl+=)")) setZoom(ws_.settings.uiScale + 0.1f);
     ImGui::SameLine(0.0f, pad);
     if (iconButton("prefs", ICON_MD_SETTINGS, "Preferences")) prefsOpen_ = true;
+    toolbarRightWidth_ = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x - rightStartX;
 
     ImGui::EndChild();
     ImGui::PopStyleVar(2);

@@ -69,6 +69,9 @@ int main(int argc, char** argv)
     io.Fonts->GetTexDataAsRGBA32(&pixels, &texW, &texH);
     io.Fonts->SetTexID(0);
 
+    // Never touch the real preferences of the app staged beside this binary.
+    dd::platform::overrideSettingsPath(dd::platform::resolve("davedown_e2e.settings"));
+
     dd::Workspace workspace;
     dd::ui::applyAppearanceNow(0, 1.0f, 1.0f);
     dd::ui::MainWindow ui(workspace);

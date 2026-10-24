@@ -1,5 +1,7 @@
 # davedown
 
+![davedown showing the welcome document in Preview mode](docs/screenshot.png)
+
 A native markdown viewer and editor for the desktop. C++20, SDL3 for the
 window and input, Dear ImGui (docking branch) for the interface. The build
 produces one folder that can be copied to another machine and run: no
@@ -117,3 +119,8 @@ tools/                  build.cmd, test.cmd
   and TGA are supported.
 - Styles, fonts and icons come from fwcom's theme system; the About box
   lists the libraries.
+
+## License
+
+MIT. See `LICENSE`, which also lists the third-party components and their
+licenses (Dear ImGui, SDL3, md4c, stb, Open Sans, Fira Code, Material Icons).
