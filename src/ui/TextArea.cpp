@@ -680,21 +680,21 @@ void markdownHighlight(std::string_view line, std::vector<TextStyleRun>& runs)
 
     // Fences, headings, quotes, rules, list markers.
     if (body.size() >= 3 && (body.rfind("```", 0) == 0 || body.rfind("~~~", 0) == 0)) {
-        add(0, (int)s.size(), pal.textMuted, fonts::code());
+        add(0, (int)s.size(), pal.textMuted);
         return;
     }
     {
         size_t n = 0;
         while (n < body.size() && body[n] == '#') ++n;
         if (n >= 1 && n <= 6 && (n == body.size() || body[n] == ' ')) {
-            add((int)lead, (int)(lead + n), pal.accent, fonts::uiBold());
-            add((int)(lead + n), (int)s.size(), pal.heading, fonts::uiBold());
+            add((int)lead, (int)(lead + n), pal.accent);
+            add((int)(lead + n), (int)s.size(), pal.heading);
             return;
         }
     }
     if (!body.empty() && body[0] == '>') {
         add((int)lead, (int)lead + 1, pal.accent);
-        add((int)lead + 1, (int)s.size(), pal.textMuted, fonts::uiItalic());
+        add((int)lead + 1, (int)s.size(), pal.textMuted);
         return;
     }
     {
@@ -734,7 +734,7 @@ void markdownHighlight(std::string_view line, std::vector<TextStyleRun>& runs)
         if (c == '`') {
             int e = i + 1;
             while (e < n && s[(size_t)e] != '`') ++e;
-            if (e < n) { add(i, e + 1, pal.inlineCodeText, fonts::code()); i = e + 1; continue; }
+            if (e < n) { add(i, e + 1, pal.inlineCodeText); i = e + 1; continue; }
         }
         if (c == '*' || c == '_') {
             const bool dbl = i + 1 < n && s[(size_t)i + 1] == c;
@@ -748,7 +748,7 @@ void markdownHighlight(std::string_view line, std::vector<TextStyleRun>& runs)
             }
             if (close > i + len) {
                 add(i, i + len, pal.textFaint);
-                add(i + len, close, pal.text, dbl ? fonts::uiBold() : fonts::uiItalic());
+                add(i + len, close, dbl ? pal.heading : pal.textMuted);
                 add(close, close + len, pal.textFaint);
                 i = close + len;
                 continue;
@@ -773,7 +773,7 @@ void markdownHighlight(std::string_view line, std::vector<TextStyleRun>& runs)
                     add(i, lb + 1, pal.textFaint);
                     add(lb + 1, (int)rb, c == '!' ? pal.warning : pal.link);
                     add((int)rb, (int)rb + 2, pal.textFaint);
-                    add((int)rb + 2, (int)rp, pal.textMuted, fonts::code());
+                    add((int)rb + 2, (int)rp, pal.textMuted);
                     add((int)rp, (int)rp + 1, pal.textFaint);
                     i = (int)rp + 1;
                     continue;
@@ -784,7 +784,7 @@ void markdownHighlight(std::string_view line, std::vector<TextStyleRun>& runs)
             const size_t gt = s.find('>', (size_t)i + 1);
             if (gt != std::string_view::npos && gt > (size_t)i + 1 &&
                 (std::isalpha((unsigned char)s[(size_t)i + 1]) || s[(size_t)i + 1] == '/' || s[(size_t)i + 1] == '!')) {
-                add(i, (int)gt + 1, pal.textFaint, fonts::code());
+                add(i, (int)gt + 1, pal.textFaint);
                 i = (int)gt + 1;
                 continue;
             }

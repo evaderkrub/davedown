@@ -30,6 +30,7 @@ struct App {
     std::unique_ptr<dd::ui::MainWindow> ui;
     std::vector<std::string> pendingFiles;
     std::string fontError;
+    int startMode = -1;   // --mode= override, -1 = the saved default
 };
 
 // A procedurally drawn window icon: a rounded tile with a down-arrow, the
@@ -129,8 +130,18 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     if (!app->fontError.empty())
         app->workspace.setStatus(app->fontError, 0.0);
 
-    for (int i = 1; i < argc; ++i)
-        if (argv[i] && argv[i][0] != '-') app->pendingFiles.push_back(argv[i]);
+    // Files to open, plus "--mode=preview|source|edit" to pick the view for
+    // this launch (handy for screenshots and bug reports).
+    for (int i = 1; i < argc; ++i) {
+        if (!argv[i]) continue;
+        const std::string arg = argv[i];
+        if (arg.rfind("--mode=", 0) == 0) {
+            dd::ViewMode m;
+            if (dd::viewModeFromName(arg.substr(7), m)) app->startMode = (int)m;
+        } else if (arg[0] != '-') {
+            app->pendingFiles.push_back(arg);
+        }
+    }
 
     SDL_ShowWindow(app->window);
     return SDL_APP_CONTINUE;
@@ -169,6 +180,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     for (const std::string& f : app->pendingFiles) app->ui->openFileFromOutside(f);
     app->pendingFiles.clear();
+    if (app->startMode >= 0) {
+        if (dd::OpenDocument* od = app->workspace.active()) app->ui->setMode(*od, (dd::ViewMode)app->startMode);
+        app->startMode = -1;
+    }
 
     const float dpi = displayScale(app->window);
     dd::ui::pumpAppearance(app->workspace.settings.uiScale, dpi);
