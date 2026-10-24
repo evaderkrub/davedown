@@ -1,0 +1,9 @@
+# Build output lives in C:/buildfiles, never in the tree.
+build/
+cmake-build-*/
+out/
+*.user
+.vs/
+.idea/
+*.ini.bak
+imgui.ini
