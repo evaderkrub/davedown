@@ -79,6 +79,16 @@ The CRT is linked statically (`/MT`) and every runtime path is resolved from
 the executable's own directory, so the folder works from a shortcut, a USB
 stick or another drive.
 
+On macOS (Apple clang, CMake, Ninja) the `mac-release` and `mac-debug`
+presets build the same targets into `~/buildfiles/davedown/`:
+
+```
+cmake --preset mac-release
+cmake --build --preset mac-release
+ctest --preset mac-release
+~/buildfiles/davedown/mac-release/stage/davedown
+```
+
 ## Tests
 
 ```

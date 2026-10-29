@@ -24,14 +24,42 @@
       "inherits": "base",
       "binaryDir": "C:/buildfiles/davedown/debug",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "mac-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "mac-release",
+      "displayName": "Release (Ninja, Apple clang)",
+      "inherits": "mac-base",
+      "binaryDir": "$env{HOME}/buildfiles/davedown/mac-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "mac-debug",
+      "displayName": "Debug (Ninja, Apple clang)",
+      "inherits": "mac-base",
+      "binaryDir": "$env{HOME}/buildfiles/davedown/mac-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     }
   ],
   "buildPresets": [
     { "name": "release", "configurePreset": "release" },
-    { "name": "debug", "configurePreset": "debug" }
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "mac-release", "configurePreset": "mac-release" },
+    { "name": "mac-debug", "configurePreset": "mac-debug" }
   ],
   "testPresets": [
     { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
-    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } }
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "mac-release", "configurePreset": "mac-release", "output": { "outputOnFailure": true } },
+    { "name": "mac-debug", "configurePreset": "mac-debug", "output": { "outputOnFailure": true } }
   ]
 }
