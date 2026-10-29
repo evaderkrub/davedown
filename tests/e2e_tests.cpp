@@ -150,6 +150,34 @@ void registerTests(ImGuiTestEngine* e, Context& context)
         closeAll(ctx);
     };
 
+    // SDL3 delivers character events only after SDL_StartTextInput(), which
+    // the backend calls when ImGui reports io.WantTextInput. KeyChars() in
+    // these tests bypasses SDL, so this checks the request itself.
+    t = IM_REGISTER_TEST(e, "edit", "focused_block_wants_text_input");
+    t->TestFunc = [](ImGuiTestContext* ctx) {
+        OpenDocument& od = freshDoc(ctx, "Hello", ViewMode::Edit);
+        ctx->Yield(2);
+        IM_CHECK(!ImGui::GetIO().WantTextInput);
+        g_ctx->workspace.ensureModel(od);
+        od.editingBlock = 0;
+        od.editingCaret = -1;
+        ctx->Yield(3);
+        IM_CHECK(ImGui::GetIO().WantTextInput);
+        ctx->KeyPress(ImGuiKey_Escape);
+        ctx->Yield(3);
+        IM_CHECK(!ImGui::GetIO().WantTextInput);
+        closeAll(ctx);
+    };
+
+    t = IM_REGISTER_TEST(e, "source", "focused_editor_wants_text_input");
+    t->TestFunc = [](ImGuiTestContext* ctx) {
+        OpenDocument& od = freshDoc(ctx, "", ViewMode::Source);
+        g_ctx->ui.focusEditorForTests(od);
+        ctx->Yield(3);
+        IM_CHECK(ImGui::GetIO().WantTextInput);
+        closeAll(ctx);
+    };
+
     t = IM_REGISTER_TEST(e, "edit", "wysiwyg_blocks");
     t->TestFunc = [](ImGuiTestContext* ctx) {
         OpenDocument& od = freshDoc(ctx, "# Title\n\nHello world\n", ViewMode::Edit);

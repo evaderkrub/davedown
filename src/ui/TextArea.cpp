@@ -348,8 +348,17 @@ TextAreaEvents textArea(const char* id, std::string& text, TextAreaState& st,
     // --- keyboard --------------------------------------------------------
     EditOps ops{text, st};
     if (st.focused) {
+        // Ask the platform for text input the way InputText does: through
+        // the IME data block. Writing g.WantTextInputNextFrame directly is
+        // useless, ImGui overwrites it from this block at EndFrame, and the
+        // SDL3 backend only calls SDL_StartTextInput() (without which no
+        // character events arrive at all) when it sees WantTextInput here.
+        // The caret position is filled in further down, once it is known.
         ImGuiContext& g = *ImGui::GetCurrentContext();
-        g.WantTextInputNextFrame = 1;
+        g.PlatformImeData.WantVisible = true;
+        g.PlatformImeData.WantTextInput = true;
+        g.PlatformImeData.InputLineHeight = fontSize;
+        g.PlatformImeData.ViewportId = ImGui::GetWindowViewport()->ID;
         ImGui::SetNextFrameWantCaptureKeyboard(true);
         // Keep ImGui's nav from eating the arrows/tab.
         ImGui::SetKeyOwner(ImGuiKey_LeftArrow, itemId);
@@ -643,10 +652,12 @@ TextAreaEvents textArea(const char* id, std::string& text, TextAreaState& st,
 
     // Caret.
     if (st.focused && !opt.readOnly) {
+        const float cx = textX + xOfOffset(st, text, cursorV, st.cursor, font, fontSize);
+        const float cy = origin.y + (float)cursorV * lineH;
+        // Where the OS should place an IME composition window.
+        ImGui::GetCurrentContext()->PlatformImeData.InputPos = ImVec2(cx - 1.0f, cy + (lineH - fontSize) * 0.5f);
         const double phase = std::fmod(now - st.blinkStart, 1.1);
         if (phase < 0.6 || st.dragging) {
-            const float cx = textX + xOfOffset(st, text, cursorV, st.cursor, font, fontSize);
-            const float cy = origin.y + (float)cursorV * lineH;
             dl->AddRectFilled(ImVec2(cx, cy + (lineH - fontSize) * 0.5f - 1.0f),
                               ImVec2(cx + 1.5f, cy + (lineH + fontSize) * 0.5f + 1.0f),
                               ImGui::GetColorU32(ImGuiCol_InputTextCursor));
