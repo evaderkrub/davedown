@@ -56,6 +56,11 @@ int main(int argc, char** argv)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_NavEnableKeyboard;
     io.DisplaySize = ImVec2(1400.0f, 900.0f);
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
+    // A private clipboard so copy tests never depend on (or disturb) the OS one.
+    static std::string clipboard;
+    ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+    pio.Platform_SetClipboardTextFn = [](ImGuiContext*, const char* text) { clipboard = text ? text : ""; };
+    pio.Platform_GetClipboardTextFn = [](ImGuiContext*) -> const char* { return clipboard.c_str(); };
 
     std::string fontError;
     const std::string fontDir = dd::platform::resolve("assets/fonts");

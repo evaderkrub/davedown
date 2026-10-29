@@ -110,6 +110,7 @@ void MainWindow::setMode(OpenDocument& od, ViewMode mode)
     if (od.mode == mode) return;
     od.mode = mode;
     od.editingBlock = -1;
+    uiFor(od).previewSelection.clear();
     if (mode == ViewMode::Source) uiFor(od).focusEditor = true;
 }
 
@@ -748,6 +749,7 @@ void MainWindow::drawDocumentBody(OpenDocument& od, DocUi& ui)
             o.scrollToHeading = od.scrollToHeading;
             o.scrollToLine = od.scrollToLine;
             o.images = &images;
+            o.selection = &ui.previewSelection;
             lastPreview_ = md::render(od.doc.text, o);
             w->WorkRect.Max.x = savedMax;
             ImGui::PopItemWidth();
@@ -764,6 +766,7 @@ void MainWindow::drawDocumentBody(OpenDocument& od, DocUi& ui)
         if (lastPreview_.headingFound || !od.scrollToHeading.empty()) { od.scrollToHeading.clear(); od.scrollToLine = -1; }
         if (!lastPreview_.clickedLink.empty()) handleLink(od, lastPreview_.clickedLink);
         if (!lastPreview_.copiedCode.empty()) { ImGui::SetClipboardText(lastPreview_.copiedCode.c_str()); status("Code copied"); }
+        if (!lastPreview_.copiedSelection.empty()) { ImGui::SetClipboardText(lastPreview_.copiedSelection.c_str()); status("Copied"); }
         if (lastPreview_.taskToggleOffset >= 0 && lastPreview_.taskToggleOffset < (int)od.doc.text.size()) {
             std::string text = od.doc.text;
             char& c = text[(size_t)lastPreview_.taskToggleOffset];

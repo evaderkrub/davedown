@@ -101,7 +101,65 @@ struct State {
 
     bool firstBlock = true;
     std::string_view source;
+
+    // Selection support (only when opt->selection is set): the plain text
+    // in reading order, and the offset nearest the mouse this frame.
+    Selection*  sel = nullptr;
+    std::string stream;
+    bool        windowHovered = false;
+    float       hitDist = FLT_MAX;
+    int         hitOffset = -1;
+    bool        hoveringText = false;
 };
+
+bool isWordByte(unsigned char c) { return std::isalnum(c) || c == '_' || c >= 0x80; }
+
+// Remembers `offset` as the selection target if it is the closest text to
+// the mouse seen so far this frame.
+void considerHit(State& st, float dist, int offset)
+{
+    if (!st.sel || offset < 0) return;
+    if (dist < st.hitDist) {
+        st.hitDist = dist;
+        st.hitOffset = offset;
+    }
+}
+
+// Byte offset within `text` (drawn with font/size at x = 0) whose boundary
+// is nearest to `x`, stepping by UTF-8 code points.
+int offsetNearestX(ImFont* font, float size, std::string_view text, float x)
+{
+    if (x <= 0.0f) return 0;
+    float prevX = 0.0f;
+    size_t i = 0;
+    while (i < text.size()) {
+        size_t n = i + 1;
+        while (n < text.size() && ((unsigned char)text[n] & 0xC0) == 0x80) ++n;
+        const float nextX = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.data(), text.data() + n).x;
+        if (x < (prevX + nextX) * 0.5f) return (int)i;
+        prevX = nextX;
+        i = n;
+    }
+    return (int)text.size();
+}
+
+// Draws the selection highlight behind one run of text. `global` is the
+// stream offset of the run's first byte; the run is `text` at `pos`.
+void drawSelectionOnRun(const State& st, ImDrawList* dl, ImFont* font, float size, ImVec2 pos,
+                        std::string_view text, float runWidth, int global, float lineH)
+{
+    if (!st.sel || !st.sel->active()) return;
+    const int s0 = st.sel->start(), s1 = st.sel->end();
+    const int g0 = global, g1 = global + (int)text.size();
+    if (s1 <= g0 || s0 >= g1) return;
+    const size_t a = (size_t)(std::max(s0, g0) - g0);
+    const size_t b = (size_t)(std::min(s1, g1) - g0);
+    const float x0 = pos.x + (a == 0 ? 0.0f : font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.data(), text.data() + a).x);
+    const float x1 = pos.x + (b == text.size() ? runWidth
+                                               : font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.data(), text.data() + b).x);
+    const float pad = (lineH - size) * 0.5f;
+    dl->AddRectFilled(ImVec2(x0, pos.y - pad), ImVec2(x1, pos.y + size + pad), ImGui::GetColorU32(ImGuiCol_TextSelectedBg));
+}
 
 // ---- small helpers ---------------------------------------------------------
 
@@ -287,6 +345,7 @@ float layoutAndDraw(State& st, const InlineContent& content, ImVec2 origin, floa
 
     const bool mouseInWindow = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
     const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const int streamBase = (int)st.stream.size();
 
     for (Piece& pc : pieces) {
         const FontChoice fc = fontFor(*pc.span, st, baseSize);
@@ -295,6 +354,15 @@ float layoutAndDraw(State& st, const InlineContent& content, ImVec2 origin, floa
         std::string_view visible = pc.text;
         while (!visible.empty() && visible.back() == ' ') visible.remove_suffix(1);
         const float visW = measure(fc.font, fc.size, visible);
+
+        if (st.sel) {
+            drawSelectionOnRun(st, dl, fc.font, fc.size, pc.pos, pc.text, pc.width,
+                               streamBase + (int)pc.plainStart, lineH);
+            if (st.windowHovered && !(pc.span->flags & F_Link) &&
+                ImRect(ImVec2(pc.pos.x, pc.pos.y - (lineH - fc.size) * 0.5f),
+                       ImVec2(pc.pos.x + visW, pc.pos.y + fc.size + (lineH - fc.size) * 0.5f)).Contains(mouse))
+                st.hoveringText = true;
+        }
 
         if (pc.span->flags & F_Code) {
             dl->AddRectFilled(ImVec2(pc.pos.x - 2.0f, pc.pos.y - 1.0f),
@@ -349,6 +417,50 @@ float layoutAndDraw(State& st, const InlineContent& content, ImVec2 origin, floa
             from = mEnd;
         }
     }
+
+    // Selection hit test: the stream offset nearest the mouse. Vertical
+    // distance dominates; horizontal distance only separates table cells
+    // sharing a row.
+    if (st.sel && !pieces.empty()) {
+        const float top = origin.y, bottom = origin.y + totalH;
+        const float dx = mouse.x < origin.x ? origin.x - mouse.x
+                       : mouse.x > origin.x + avail ? mouse.x - (origin.x + avail) : 0.0f;
+        if (mouse.y < top) {
+            considerHit(st, (top - mouse.y) * 1000.0f + dx, streamBase);
+        } else if (mouse.y >= bottom) {
+            considerHit(st, (mouse.y - bottom) * 1000.0f + dx, streamBase + (int)plainOut.size());
+        } else {
+            const int ln = std::clamp((int)((mouse.y - top) / lineH), 0, lineCount - 1);
+            const Piece* first = nullptr;
+            const Piece* last = nullptr;
+            for (const Piece& pc : pieces) {
+                if (pc.line != ln) continue;
+                if (!first) first = &pc;
+                last = &pc;
+            }
+            int off = streamBase;
+            if (!first) {
+                // A line with no pieces (a hard break): snap to the next text.
+                for (const Piece& pc : pieces)
+                    if (pc.line > ln) { off = streamBase + (int)pc.plainStart; break; }
+            } else if (mouse.x < first->pos.x) {
+                off = streamBase + (int)first->plainStart;
+            } else if (mouse.x >= last->pos.x + last->width) {
+                std::string_view visible = last->text;
+                while (!visible.empty() && visible.back() == ' ') visible.remove_suffix(1);
+                off = streamBase + (int)last->plainStart + (int)visible.size();
+            } else {
+                for (const Piece& pc : pieces) {
+                    if (pc.line != ln) continue;
+                    if (mouse.x >= pc.pos.x + pc.width) continue;
+                    off = streamBase + (int)pc.plainStart + offsetNearestX(pc.font, pc.fontSize, pc.text, mouse.x - pc.pos.x);
+                    break;
+                }
+            }
+            considerHit(st, dx, off);
+        }
+    }
+    if (st.sel) st.stream.append(plainOut);
     return totalH;
 }
 
@@ -521,6 +633,9 @@ void flushInline(State& st, int align = MD_ALIGN_DEFAULT)
             ImGui::Dummy(ImVec2(avail, 1.0f));
         }
     }
+    // Table cells are separated by the cell handler; every other block ends
+    // a line of the selectable text.
+    if (st.sel && !st.inTable) st.stream += '\n';
     st.cur.clear();
 }
 
@@ -569,10 +684,49 @@ void drawCodeBlock(State& st)
         // Trailing newline would add an empty last line.
         std::string_view body = st.codeBuf;
         while (!body.empty() && body.back() == '\n') body.remove_suffix(1);
+        if (st.sel) {
+            // Selection highlight and hit test, line by line, behind the text.
+            ImDrawList* cdl = ImGui::GetWindowDrawList();
+            ImFont* font = fonts::code();
+            const float size = fs * 0.92f;
+            const ImVec2 textPos = ImGui::GetCursorScreenPos();
+            const float lineH = ImGui::GetTextLineHeight();
+            const int streamBase = (int)st.stream.size();
+            const ImVec2 mouse = ImGui::GetIO().MousePos;
+            const float rightEdge = ImGui::GetWindowPos().x + ImGui::GetWindowWidth();
+            size_t ls = 0;
+            int ln = 0;
+            for (;;) {
+                const size_t nl = body.find('\n', ls);
+                const size_t le = nl == std::string_view::npos ? body.size() : nl;
+                const std::string_view line = body.substr(ls, le - ls);
+                const ImVec2 pos(textPos.x, textPos.y + (float)ln * lineH);
+                const float w = measure(font, size, line);
+                // The newline after a line is selectable too, so a selection
+                // spanning lines reads as one block.
+                const std::string_view withNl = body.substr(ls, std::min(body.size(), le + 1) - ls);
+                const float nlW = withNl.size() > line.size() ? size * 0.5f : 0.0f;
+                drawSelectionOnRun(st, cdl, font, size, pos, withNl, w + nlW, streamBase + (int)ls, lineH);
+                if (mouse.y >= pos.y && mouse.y < pos.y + lineH) {
+                    const float dx = mouse.x < textPos.x ? textPos.x - mouse.x : mouse.x > rightEdge ? mouse.x - rightEdge : 0.0f;
+                    const int off = mouse.x >= pos.x + w ? (int)line.size()
+                                                         : offsetNearestX(font, size, line, mouse.x - pos.x);
+                    considerHit(st, dx, streamBase + (int)ls + off);
+                    if (st.windowHovered && mouse.x >= pos.x && mouse.x < pos.x + w) st.hoveringText = true;
+                }
+                if (nl == std::string_view::npos) break;
+                ls = nl + 1;
+                ++ln;
+            }
+            const float top = textPos.y, bottom = textPos.y + (float)(ln + 1) * lineH;
+            if (mouse.y < top) considerHit(st, (top - mouse.y) * 1000.0f, streamBase);
+            else if (mouse.y >= bottom) considerHit(st, (mouse.y - bottom) * 1000.0f, streamBase + (int)body.size());
+        }
         if (body.empty()) ImGui::TextUnformatted(" ");
         else ImGui::TextUnformatted(body.data(), body.data() + body.size());
         ImGui::PopStyleColor();
         ImGui::PopFont();
+        if (st.sel) { st.stream.append(body); st.stream += '\n'; }
     }
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
@@ -955,12 +1109,20 @@ int cbLeaveBlock(MD_BLOCKTYPE t, void*, void* ud)
         st.tableCols = 0;
         break;
     case MD_BLOCK_THEAD: st.inTableHead = false; break;
+    case MD_BLOCK_TR:
+        // A row of selectable text ends with a newline instead of a tab.
+        if (st.sel && st.inTable) {
+            if (!st.stream.empty() && st.stream.back() == '\t') st.stream.back() = '\n';
+            else st.stream += '\n';
+        }
+        break;
     case MD_BLOCK_TH:
     case MD_BLOCK_TD:
         if (st.inTable && st.tableCol < st.tableCols) {
             const int align = st.cellAlign[(size_t)st.tableCol];
             if (st.cur.empty()) ImGui::Dummy(ImVec2(1.0f, baseFontSize()));
             else flushInline(st, align);
+            if (st.sel) st.stream += '\t';
         }
         st.cur.clear();
         if (t == MD_BLOCK_TH) st.spanFlags &= ~F_Bold;
@@ -1127,11 +1289,72 @@ std::string decodeEntity(std::string_view e)
     return std::string(e);
 }
 
+// Mouse and keyboard handling for the selection, once the whole document
+// has been laid out and the nearest offset to the mouse is known.
+void updateSelection(State& st)
+{
+    Selection& sel = *st.sel;
+    const ImGuiIO& io = ImGui::GetIO();
+    const int streamSize = (int)st.stream.size();
+    if (sel.anchor > streamSize || sel.cursor > streamSize) sel.clear();   // text changed under it
+
+    if (st.hoveringText && st.out.hoveredLink.empty()) ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+
+    // A press on text (not on a link, task box or widget) starts a selection;
+    // Shift extends the existing one; a double click takes the word.
+    const bool pressOnText = st.windowHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                             ImGui::GetActiveID() == 0 && st.out.clickedLink.empty() &&
+                             st.out.taskToggleOffset < 0 && st.hitOffset >= 0;
+    if (pressOnText) {
+        if (io.KeyShift && sel.anchor >= 0) {
+            sel.cursor = st.hitOffset;
+        } else if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            int a = st.hitOffset, b = st.hitOffset;
+            while (a > 0 && isWordByte((unsigned char)st.stream[(size_t)a - 1])) --a;
+            while (b < streamSize && isWordByte((unsigned char)st.stream[(size_t)b])) ++b;
+            sel.anchor = a;
+            sel.cursor = b;
+        } else {
+            sel.anchor = sel.cursor = st.hitOffset;
+        }
+        sel.dragging = true;
+    }
+    if (sel.dragging) {
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            if (st.hitOffset >= 0 && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 1.0f)) sel.cursor = st.hitOffset;
+            // Dragging past the edges scrolls the view.
+            const float top = ImGui::GetWindowPos().y, bottom = top + ImGui::GetWindowHeight();
+            const float step = baseFontSize() * 0.6f;
+            if (io.MousePos.y < top) ImGui::SetScrollY(ImGui::GetScrollY() - step);
+            else if (io.MousePos.y > bottom) ImGui::SetScrollY(ImGui::GetScrollY() + step);
+        } else {
+            sel.dragging = false;
+        }
+    }
+
+    // Keyboard, while the view (and not a text field elsewhere) has focus.
+    const bool keys = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !io.WantTextInput;
+    if (keys) {
+        if (io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_A, false)) {
+            sel.anchor = 0;
+            sel.cursor = streamSize;
+        }
+        if (io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_C, false) && sel.active())
+            st.out.copiedSelection = st.stream.substr((size_t)sel.start(), (size_t)(sel.end() - sel.start()));
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) && sel.active()) sel.clear();
+    }
+}
+
 Result render(std::string_view text, const Options& options)
 {
     State st;
     st.opt = &options;
     st.source = text;
+    st.sel = options.selection;
+    if (st.sel) {
+        st.stream.reserve(text.size());
+        st.windowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+    }
     st.tableMeasures = measureTables(text, baseFontSize());
 
     MD_PARSER parser;
@@ -1151,6 +1374,7 @@ Result render(std::string_view text, const Options& options)
     // Unwind anything a malformed document left pushed.
     while (!st.lists.empty()) { ImGui::Unindent(baseFontSize() * 1.6f); st.lists.pop_back(); }
     while (st.quoteDepth > 0) { ImGui::Unindent(baseFontSize() * 1.1f); st.quoteDepth--; }
+    if (st.sel) updateSelection(st);
     return st.out;
 }
 

@@ -18,7 +18,9 @@ Every open document has three views, switchable from the toolbar or with
   task lists you can tick, block quotes, fenced code with a copy button,
   tables with content-aware column widths, images relative to the file,
   links (web links open in the browser, `.md` links open in a new tab,
-  `#anchors` scroll to the heading), strikethrough, inline code.
+  `#anchors` scroll to the heading), strikethrough, inline code. Drag to
+  select text (double-click for a word, `Ctrl+A` for all) and `Ctrl+C` to
+  copy it as plain text.
 - **Source** is the raw markdown in a monospace, word-wrapped, syntax-coloured
   editor with line numbers. Enter continues list markers, Tab indents.
 - **Edit** is the WYSIWYG mode: a block-based live preview. Click a block to

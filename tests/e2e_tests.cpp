@@ -97,6 +97,65 @@ void registerTests(ImGuiTestEngine* e, Context& context)
         closeAll(ctx);
     };
 
+    t = IM_REGISTER_TEST(e, "preview", "select_and_copy");
+    t->TestFunc = [](ImGuiTestContext* ctx) {
+        const std::string md = "# Title\n\nHello world\n\n```\nint x;\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n";
+        OpenDocument& od = freshDoc(ctx, md, ViewMode::Preview);
+        ctx->Yield(2);
+        ImGui::SetClipboardText("");
+        ui::md::Selection& sel = g_ctx->ui.previewSelectionForTests(od);
+        ImGuiWindow* win = ctx->GetWindowByRef(("//" + docWindow(od)).c_str());
+        IM_CHECK(win != nullptr);
+        ImGuiTestItemInfo preview = ctx->WindowInfo(("//" + docWindow(od) + "/##preview").c_str());
+        IM_CHECK(preview.Window != nullptr);
+        const ImRect pr = preview.Window->Rect();
+
+        // Nothing selected: Ctrl+C leaves the clipboard alone.
+        ctx->MouseMoveToPos(pr.GetCenter());
+        ctx->MouseClick(0);
+        ctx->Yield(2);
+        IM_CHECK(!sel.active());
+        ctx->KeyPress(ImGuiMod_Ctrl | ImGuiKey_C);
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(ImGui::GetClipboardText(), "");
+
+        // Drag from above the first text to below the last selects everything.
+        const ui::md::Result& r = g_ctx->ui.lastPreviewResult();
+        IM_CHECK_EQ((int)r.headings.size(), 1);
+        ctx->MouseMoveToPos(ImVec2(pr.Min.x + 4.0f, r.headings[0].screenY + 2.0f));
+        ctx->MouseDown(0);
+        ctx->MouseMoveToPos(ImVec2(pr.Max.x - 4.0f, pr.Max.y - 4.0f));
+        ctx->MouseUp(0);
+        ctx->Yield(2);
+        IM_CHECK(sel.active());
+        ctx->KeyPress(ImGuiMod_Ctrl | ImGuiKey_C);
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(ImGui::GetClipboardText(), "Title\nHello world\nint x;\na\tb\n1\t2");
+
+        // Escape clears; Ctrl+A selects all (including the final newline).
+        ctx->KeyPress(ImGuiKey_Escape);
+        ctx->Yield(2);
+        IM_CHECK(!sel.active());
+        ctx->KeyPress(ImGuiMod_Ctrl | ImGuiKey_A);
+        ctx->KeyPress(ImGuiMod_Ctrl | ImGuiKey_C);
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(ImGui::GetClipboardText(), "Title\nHello world\nint x;\na\tb\n1\t2\n");
+
+        // Double-click on the heading selects that word.
+        ctx->MouseMoveToPos(ImVec2(pr.Min.x + ImGui::GetFontSize() * 3.0f, r.headings[0].screenY + ImGui::GetFontSize()));
+        ctx->MouseDoubleClick(0);
+        ctx->Yield(2);
+        ctx->KeyPress(ImGuiMod_Ctrl | ImGuiKey_C);
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(ImGui::GetClipboardText(), "Title");
+
+        // Leaving Preview drops the selection.
+        g_ctx->ui.setMode(od, ViewMode::Source);
+        ctx->Yield(2);
+        IM_CHECK(!sel.active());
+        closeAll(ctx);
+    };
+
     t = IM_REGISTER_TEST(e, "toolbar", "mode_switch_buttons");
     t->TestFunc = [](ImGuiTestContext* ctx) {
         OpenDocument& od = freshDoc(ctx, "# Hi\n", ViewMode::Preview);

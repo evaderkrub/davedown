@@ -51,6 +51,7 @@ public:
     const md::Result& lastPreviewResult() const { return lastPreview_; }
     bool  canUndo(const OpenDocument& od) const;
     void  focusEditorForTests(OpenDocument& od) { uiFor(od).focusEditor = true; }
+    md::Selection& previewSelectionForTests(OpenDocument& od) { return uiFor(od).previewSelection; }
 
 private:
     struct DocUi {
@@ -61,6 +62,7 @@ private:
         bool              focusSearch = false;
         bool              focusEditor = false;
         float             previewScrollRestore = -1.0f;
+        md::Selection     previewSelection;   // mouse selection in Preview mode
     };
 
     DocUi& uiFor(const OpenDocument& od);
