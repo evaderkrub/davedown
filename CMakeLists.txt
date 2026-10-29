@@ -135,6 +135,9 @@ add_library(davedown_platform STATIC
     src/platform/FileAssociation.cpp)
 target_include_directories(davedown_platform PUBLIC src)
 target_link_libraries(davedown_platform PUBLIC davedown_warnings davedown_app SDL3::SDL3 stb_image)
+if(WIN32)
+    target_link_libraries(davedown_platform PUBLIC shell32 ole32)
+endif()
 
 # --- ui: everything that draws -----------------------------------------------
 add_library(davedown_ui STATIC

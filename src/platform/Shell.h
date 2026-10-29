@@ -8,6 +8,10 @@ namespace dd::platform {
 // Opens a URL (or a file path) with the system default handler.
 bool openExternal(const std::string& target, std::string& error);
 
+// Opens the file manager on the folder holding `path` with the file
+// selected (Explorer on Windows, Finder on macOS; the folder alone elsewhere).
+bool showInFolder(const std::string& path, std::string& error);
+
 // Monotonic seconds since start, for status-message timeouts and animation.
 double nowSeconds();
 

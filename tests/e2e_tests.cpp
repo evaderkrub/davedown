@@ -4,6 +4,7 @@
 #include "e2e_tests.h"
 
 #include "app/Workspace.h"
+#include "platform/Paths.h"
 #include "ui/MainWindow.h"
 #include "ui/Theme.h"
 #include "IconsMaterialDesign.h"
@@ -154,6 +155,53 @@ void registerTests(ImGuiTestEngine* e, Context& context)
         ctx->Yield(2);
         IM_CHECK(!sel.active());
         closeAll(ctx);
+    };
+
+    t = IM_REGISTER_TEST(e, "tabs", "context_menu_copies_path");
+    t->TestFunc = [](ImGuiTestContext* ctx) {
+        // A saved document: write a temporary file and open it.
+        const std::string path = platform::resolve("e2e_tabmenu.md");
+        {
+            std::FILE* f = std::fopen(path.c_str(), "wb");
+            IM_CHECK(f != nullptr);
+            std::fputs("# Tab menu\n", f);
+            std::fclose(f);
+        }
+        std::string error;
+        IM_CHECK(g_ctx->workspace.openFile(path, error));
+        OpenDocument* od = g_ctx->workspace.byPath(path);
+        IM_CHECK(od != nullptr);
+        ctx->Yield(3);
+        ImGui::SetClipboardText("");
+
+        ImGuiWindow* win = ctx->GetWindowByRef(("//" + docWindow(*od)).c_str());
+        IM_CHECK(win != nullptr);
+        const ImRect tab = win->DockIsActive ? win->DC.DockTabItemRect : win->TitleBarRect();
+        ctx->MouseMoveToPos(tab.GetCenter());
+        ctx->MouseClick(ImGuiMouseButton_Right);
+        ctx->Yield(2);
+        ctx->SetRef("//$FOCUSED");
+        ctx->ItemClick(ICON_MD_CONTENT_COPY " Copy full path");
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(ImGui::GetClipboardText(), path.c_str());
+
+        // An unsaved document offers the items disabled.
+        OpenDocument& untitled = freshDoc(ctx, "", ViewMode::Preview);
+        ctx->Yield(3);
+        ImGuiWindow* win2 = ctx->GetWindowByRef(("//" + docWindow(untitled)).c_str());
+        IM_CHECK(win2 != nullptr);
+        const ImRect tab2 = win2->DockIsActive ? win2->DC.DockTabItemRect : win2->TitleBarRect();
+        ctx->MouseMoveToPos(tab2.GetCenter());
+        ctx->MouseClick(ImGuiMouseButton_Right);
+        ctx->Yield(2);
+        ctx->SetRef("//$FOCUSED");
+        ImGuiTestItemInfo item = ctx->ItemInfo(ICON_MD_CONTENT_COPY " Copy full path");
+        IM_CHECK(item.ID != 0);
+        IM_CHECK((item.ItemFlags & ImGuiItemFlags_Disabled) != 0);
+        ctx->KeyPress(ImGuiKey_Escape);
+        ctx->Yield(2);
+        closeAll(ctx);
+        std::remove(path.c_str());
     };
 
     t = IM_REGISTER_TEST(e, "toolbar", "mode_switch_buttons");

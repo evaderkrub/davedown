@@ -846,6 +846,20 @@ void MainWindow::drawDocumentWindow(OpenDocument& od, const UiFrame& frame, unsi
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     const bool visible = ImGui::Begin(docWindowName(od).c_str(), &open, flags);
     ImGui::PopStyleVar();
+    // Right after Begin() the "last item" is the window's dock tab (or its
+    // title bar when floating), so this is the tab's context menu.
+    if (ImGui::BeginPopupContextItem("##tabmenu")) {
+        const bool saved = !od.doc.isUntitled();
+        if (ImGui::MenuItem(ICON_MD_FOLDER_OPEN " Show in folder", nullptr, false, saved)) {
+            std::string error;
+            if (!platform::showInFolder(od.doc.path, error)) showError(error);
+        }
+        if (ImGui::MenuItem(ICON_MD_CONTENT_COPY " Copy full path", nullptr, false, saved)) {
+            ImGui::SetClipboardText(od.doc.path.c_str());
+            status("Path copied");
+        }
+        ImGui::EndPopup();
+    }
     if (visible) {
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) ws_.activeId = od.id;
         if (od.showFind) drawFindBar(od, ui);
