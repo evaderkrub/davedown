@@ -16,6 +16,7 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -32,6 +33,7 @@ struct App {
     std::vector<std::string> pendingFiles;
     std::string fontError;
     int startMode = -1;   // --mode= override, -1 = the saved default
+    int fitFrames = 0;    // >0: re-fit the window to its display on an upcoming frame
 };
 
 // A procedurally drawn window icon: a rounded tile with a down-arrow, the
@@ -66,6 +68,40 @@ float displayScale(SDL_Window* window)
 {
     const float s = SDL_GetWindowDisplayScale(window);
     return (s > 0.1f && std::isfinite(s)) ? s : 1.0f;
+}
+
+// Keep the whole window, frame included, inside the usable area of the
+// display it is on. A size saved on a large monitor, or a resolution change
+// while running, would otherwise leave the title bar out of reach.
+void fitWindowToDisplay(SDL_Window* window)
+{
+    const SDL_WindowFlags flags = SDL_GetWindowFlags(window);
+    if (flags & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED | SDL_WINDOW_FULLSCREEN)) return;
+
+    SDL_DisplayID display = SDL_GetDisplayForWindow(window);
+    if (display == 0) display = SDL_GetPrimaryDisplay();
+    SDL_Rect usable{};
+    if (!SDL_GetDisplayUsableBounds(display, &usable) || usable.w <= 0 || usable.h <= 0) return;
+
+    int top = 0, left = 0, bottom = 0, right = 0;
+    if (!SDL_GetWindowBordersSize(window, &top, &left, &bottom, &right)) top = left = bottom = right = 0;
+    int x = 0, y = 0, w = 0, h = 0;
+    SDL_GetWindowPosition(window, &x, &y);
+    SDL_GetWindowSize(window, &w, &h);
+
+    const int maxW = std::max(400, usable.w - left - right);
+    const int maxH = std::max(300, usable.h - top - bottom);
+    const int newW = std::min(w, maxW);
+    const int newH = std::min(h, maxH);
+    const int minX = usable.x + left;
+    const int minY = usable.y + top;
+    const int maxX = std::max(minX, usable.x + usable.w - right - newW);
+    const int maxY = std::max(minY, usable.y + usable.h - bottom - newH);
+    const int newX = std::min(std::max(x, minX), maxX);
+    const int newY = std::min(std::max(y, minY), maxY);
+
+    if (newW != w || newH != h) SDL_SetWindowSize(window, newW, newH);
+    if (newX != x || newY != y) SDL_SetWindowPosition(window, newX, newY);
 }
 
 } // namespace
@@ -155,6 +191,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         }
     }
 
+    // The saved size may come from a bigger screen; shrink and centre it on
+    // this one before the first frame so the window is never born off screen.
+    if (!s.windowMaximized) {
+        fitWindowToDisplay(app->window);
+        SDL_SetWindowPosition(app->window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        fitWindowToDisplay(app->window);
+    }
     SDL_ShowWindow(app->window);
     return SDL_APP_CONTINUE;
 }
@@ -173,6 +216,15 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     case SDL_EVENT_DROP_FILE:
         if (event->drop.data) app->pendingFiles.push_back(event->drop.data);
         break;
+    case SDL_EVENT_DISPLAY_ADDED:
+    case SDL_EVENT_DISPLAY_REMOVED:
+    case SDL_EVENT_DISPLAY_DESKTOP_MODE_CHANGED:
+    case SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED:
+        // Resolution or monitor layout changed under a running window. The OS
+        // may still be shuffling windows around; re-fit a few frames later
+        // once the new layout has settled.
+        app->fitFrames = 10;
+        break;
     default:
         break;
     }
@@ -189,6 +241,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         SDL_Delay(16);
         return SDL_APP_CONTINUE;
     }
+
+    if (app->fitFrames > 0 && --app->fitFrames == 0) fitWindowToDisplay(app->window);
 
     for (const std::string& f : app->pendingFiles) app->ui->openFileFromOutside(f);
     app->pendingFiles.clear();
