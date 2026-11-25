@@ -99,6 +99,18 @@ WysiwygResult drawWysiwygEditor(const char* id, Workspace& ws, OpenDocument& od,
     const float fs = ImGui::GetFontSize();
     const double now = ImGui::GetTime();
 
+    // A blank document always shows a caret in an empty paragraph, so there
+    // is nothing to click before typing. The empty paragraph serializes to
+    // the same empty text, so this does not dirty the document.
+    const bool blank = model.blocks.empty() ||
+                       (model.blocks.size() == 1 && model.blocks[0].type == BlockType::Paragraph &&
+                        model.blocks[0].text.empty());
+    if (blank && od.editingBlock < 0) {
+        if (model.blocks.empty()) model.blocks.push_back(Block());
+        beginEditing(od, 0, 0);
+        st.loadedBlock = -1;   // force a reload so the field takes focus
+    }
+
     if (od.editingBlock != st.loadedBlock) loadBlock(od, st);
 
     ImGui::PushID(id);
@@ -118,19 +130,6 @@ WysiwygResult drawWysiwygEditor(const char* id, Workspace& ws, OpenDocument& od,
 
     ImGui::Indent(gutter);
     const float contentW = ImGui::GetContentRegionAvail().x - fs;
-
-    if (model.blocks.empty()) {
-        // Empty document: one click starts a paragraph.
-        const ImVec2 p0 = ImGui::GetCursorScreenPos();
-        dl->AddText(fonts::uiItalic(), fs, p0, pal.textFaint, "Click here to start writing...");
-        ImGui::InvisibleButton("##start", ImVec2(std::max(contentW, 32.0f), fs * 1.5f));
-        if (ImGui::IsItemClicked()) {
-            Block b;
-            model.blocks.push_back(b);
-            beginEditing(od, 0, 0);
-            commit(ws, od, r);
-        }
-    }
 
     // The block being edited is fixed for the frame: a split or merge inside
     // the loop changes od.editingBlock, and the new block must not be visited

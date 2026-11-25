@@ -276,6 +276,20 @@ void registerTests(ImGuiTestEngine* e, Context& context)
         closeAll(ctx);
     };
 
+    // A blank document shows a caret straight away: typing needs no click.
+    t = IM_REGISTER_TEST(e, "edit", "blank_document_has_caret");
+    t->TestFunc = [](ImGuiTestContext* ctx) {
+        OpenDocument& od = freshDoc(ctx, "", ViewMode::Edit);
+        ctx->Yield(3);
+        IM_CHECK_EQ(od.editingBlock, 0);
+        IM_CHECK(ImGui::GetIO().WantTextInput);
+        IM_CHECK(!od.doc.isDirty());
+        ctx->KeyChars("Hello");
+        ctx->Yield(2);
+        IM_CHECK_STR_EQ(od.doc.text.c_str(), "Hello\n");
+        closeAll(ctx);
+    };
+
     t = IM_REGISTER_TEST(e, "source", "focused_editor_wants_text_input");
     t->TestFunc = [](ImGuiTestContext* ctx) {
         OpenDocument& od = freshDoc(ctx, "", ViewMode::Source);
