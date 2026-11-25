@@ -11,6 +11,7 @@
 
 namespace dd::platform {
 
+#if !defined(_WIN32) && !defined(__APPLE__)
 namespace {
 
 std::string parentDirectory(const std::string& path)
@@ -20,6 +21,7 @@ std::string parentDirectory(const std::string& path)
 }
 
 } // namespace
+#endif
 
 bool openExternal(const std::string& target, std::string& error)
 {
